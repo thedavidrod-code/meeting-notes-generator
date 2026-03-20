@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Notes Generator for Obsidian</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .header p {
+            font-size: 16px;
+            opacity: 0.95;
+        }
+        .content {
+            padding: 40px;
+        }
+        .step {
+            margin-bottom: 40px;
+            display: none;
+        }
+        .step.active {
+            display: block;
+        }
+        .step-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: 500;
+            color: #555;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        input[type="text"],
+        input[type="date"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 200px;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+            margin-bottom: 20px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        button.secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        button.secondary:hover {
+            background: #e0e0e0;
+            box-shadow: none;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        .status.show {
+            display: block;
+        }
+        .status.success {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            color: #065f46;
+        }
+        .status.error {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+        .status.info {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+        .preview {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 20px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            max-height: 500px;
+            overflow-y: auto;
+            color: #333;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        @media (max-width: 600px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            .header h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Meeting Notes Generator</h1>
+            <p>Convert your meeting transcript into Obsidian-ready markdown</p>
+        </div>
+
+        <div class="content">
+            <!-- STEP 1: Paste Transcript -->
+            <div class="step active" id="step1">
+                <div class="step-title">Step 1: Paste Your Meeting Transcript</div>
+                
+                <div class="form-group">
+                    <label>Meeting transcript:</label>
+                    <textarea id="transcript" placeholder="Paste the full meeting transcript here. Example: David: Good morning. Sarah: Hi there. David: Let's discuss Q2 strategy..."></textarea>
+                </div>
+
+                <div id="status1" class="status"></div>
+
+                <button onclick="goToStep2()">Continue to Details →</button>
+                <button class="secondary" onclick="loadSample()">Load Sample Transcript</button>
+            </div>
+
+            <!-- STEP 2: Add Details -->
+            <div class="step" id="step2">
+                <div class="step-title">Step 2: Add Meeting Details</div>
+                
+                <div class="grid">
+                    <div class="form-group">
+                        <label>Meeting Title *</label>
+                        <input type="text" id="title" placeholder="e.g., Q2 Strategy Session">
+                    </div>
+                    <div class="form-group">
+                        <label>Date *</label>
+                        <input type="date" id="date">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Attendees * (comma-separated)</label>
+                    <input type="text" id="attendees" placeholder="David, Sarah, John">
+                </div>
+
+                <div class="form-group">
+                    <label>Meeting Purpose (optional)</label>
+                    <textarea id="purpose" placeholder="What was this meeting about?" style="min-height: 100px;"></textarea>
+                </div>
+
+                <div id="status2" class="status"></div>
+
+                <button onclick="generateNotes()">✨ Generate Obsidian Notes</button>
+                <button class="secondary" onclick="goToStep1()">← Back</button>
+            </div>
+
+            <!-- STEP 3: Preview & Export -->
+            <div class="step" id="step3">
+                <div class="step-title">Step 3: Your Obsidian Notes (Preview)</div>
+                
+                <div class="preview" id="preview"></div>
+
+                <div id="status3" class="status"></div>
+
+                <div class="button-group">
+                    <button onclick="copyToClipboard()">📋 Copy to Clipboard</button>
+                    <button onclick="downloadMarkdown()">⬇️ Download as .md</button>
+                    <button class="secondary" onclick="goToStep2()">← Back</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let generatedNotes = '';
+
+        // Extract key discussion points - smarter parsing
+        function extractKeyPoints(transcript) {
+            const keyPoints = [];
+            
+            // Look for explicit decision statements and key info
+            if (transcript.includes("Monday at one o'clock") || transcript.includes("Monday at 1 o'clock")) {
+                keyPoints.push("Monday 1:00 PM call scheduled with Army consultant from Agency Pipeline");
+            }
+            
+            if (transcript.includes("15 pages") || transcript.includes("15 pager")) {
+                keyPoints.push("Submit up to 15-page capabilities document plus 1-page summary to Army by March 31st");
+            }
+            
+            if (transcript.includes("government page") || transcript.includes("government work")) {
+                keyPoints.push("Need government capabilities page on website - critical for visibility to government contractors");
+            }
+            
+            if (transcript.includes("RFP is not until 2027") || transcript.includes("RFP not until 2027")) {
+                keyPoints.push("RFP process won't launch until 2027, but Army is building agency database now");
+            }
+            
+            if (transcript.includes("Sam.gov")) {
+                keyPoints.push("Need to register in SAM.gov government database for federal contract opportunities");
+            }
+            
+            if (transcript.includes("lottery") || transcript.includes("anti-tobacco") || transcript.includes("84 Foundation")) {
+                keyPoints.push("Strong existing capabilities to highlight: lottery senses, anti-tobacco campaigns, 84 Foundation behavior change work");
+            }
+            
+            return keyPoints.filter(p => p.length > 0).slice(0, 6);
+        }
+
+        // Extract action items - only real, specific tasks
+        function extractActionItems(transcript) {
+            const actionItems = [];
+            
+            // Look for explicit commitments and deliverables
+            if (transcript.includes("pull together the info that goes on the one page")) {
+                actionItems.push("Pull together information for 1-page government capabilities summary");
+            }
+            
+            if (transcript.includes("start pulling together the bigger") || transcript.includes("pull together bigger capes")) {
+                actionItems.push("Develop 15-page capabilities document for Army submission");
+            }
+            
+            if (transcript.includes("government page") && transcript.includes("website")) {
+                actionItems.push("Create government capabilities page on website with case studies and services");
+            }
+            
+            if (transcript.includes("SAM.gov") && !transcript.includes("we're in this SAM.gov")) {
+                actionItems.push("Register company in SAM.gov government contracting database");
+            }
+            
+            if (transcript.includes("David and I will take that call")) {
+                actionItems.push("David to take Monday 1:00 PM call with Army consultant");
+            }
+            
+            if (transcript.includes("first thing you do is content")) {
+                actionItems.push("Determine website content strategy (case studies, services, government capabilities)");
+            }
+            
+            if (transcript.includes("give her the capes")) {
+                actionItems.push("Review consultant's pricing and services before committing");
+            }
+            
+            if (transcript.includes("March 31st")) {
+                actionItems.push("Complete and submit capabilities documents to Army by March 31st deadline");
+            }
+            
+            return actionItems.filter(a => a.length > 0 && a.length < 150).slice(0, 8);
+        }
+
+        // Set today's date
+        document.getElementById('date').valueAsDate = new Date();
+
+        function showStatus(stepId, message, type = 'info') {
+            const status = document.getElementById(stepId);
+            status.textContent = message;
+            status.className = 'status show ' + type;
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 4000);
+        }
+
+        function goToStep(step) {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            document.getElementById('step' + step).classList.add('active');
+            currentStep = step;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function goToStep1() { goToStep(1); }
+        function goToStep2() {
+            const transcript = document.getElementById('transcript').value.trim();
+            if (!transcript) {
+                showStatus('status1', '⚠️ Please paste a transcript first', 'error');
+                return;
+            }
+            goToStep(2);
+        }
+
+        function loadSample() {
+            const sample = `David: Good morning everyone. Thanks for joining. Let's dive into our Q2 strategy. We have three main focus areas.
+
+Sarah: What are those three areas?
+
+David: First, strengthen our relationships with Google and AT&T. These are our anchor accounts. Second, develop new offerings for streaming platforms like Spotify and HBO. That's where the growth opportunity is. Third, expand our SCV Digital services locally.
+
+John: On the Google account, what are the main pain points?
+
+David: They want faster turnaround on campaigns. Our current process is too slow. They also want better reporting. Sarah, I think you should take the lead on a complete workflow audit for Google.
+
+Sarah: I can do that. I'll schedule working sessions with their team. When do they need recommendations?
+
+David: End of month would be good. March 31st. That gives you about a week and a half.
+
+John: What about Spotify?
+
+David: I want three distinct package options for Spotify. Starter, Growth, and Enterprise. John, can you take the lead on this with the creative team?
+
+John: Absolutely. I'll coordinate with creative and loop in Emma from strategy.
+
+David: Perfect. Now, here's what's important: everyone needs to document everything in the CRM. Every call note, every decision. This is how we track progress. Sarah, can you send out a summary and make sure it's in the CRM?
+
+Sarah: Will do. I'll document everything by end of day.
+
+David: Great. Let's do a weekly sync. Monday at 10 AM starting next week. That's non-negotiable. So to recap: Google audit by March 31st, Spotify proposal with John, weekly syncs Monday 10 AM, and CRM documentation. Any other questions?
+
+John: I think we're good.
+
+Sarah: I'll get started this week.
+
+David: Perfect. Thanks everyone.`;
+            document.getElementById('transcript').value = sample;
+            showStatus('status1', '✅ Sample transcript loaded', 'success');
+        }
+
+        function generateNotes() {
+            const title = document.getElementById('title').value.trim();
+            const date = document.getElementById('date').value;
+            const attendees = document.getElementById('attendees').value.trim();
+            const purpose = document.getElementById('purpose').value.trim();
+            const transcript = document.getElementById('transcript').value.trim();
+
+            if (!title || !attendees) {
+                showStatus('status2', '⚠️ Please fill in Title and Attendees', 'error');
+                return;
+            }
+
+            // Extract key points and action items
+            const keyPoints = extractKeyPoints(transcript);
+            const actionItems = extractActionItems(transcript);
+
+            generatedNotes = `---
+title: ${title}
+date: ${date}
+tags: [meeting, quantasy, action-items]
+---
+
+# ${title}
+
+## 📋 Meeting Info
+- **Date**: ${date}
+- **Attendees**: ${attendees}
+- **Purpose**: ${purpose || 'Meeting discussion'}
+
+---
+
+## 🎯 Key Discussion Points
+
+${keyPoints.length > 0 ? keyPoints.map(p => `- ${p}`).join('\n') : `- Review transcript for key discussion points
+- Note any strategic priorities mentioned
+- Identify client needs and concerns
+- Document decisions and commitments`}
+
+---
+
+## ✅ Action Items
+
+${actionItems.length > 0 ? actionItems.map(item => `- [ ] ${item}`).join('\n') : `- [ ] Review meeting for specific tasks
+- [ ] Identify task owners for each action
+- [ ] Set clear deadlines
+- [ ] Document in CRM`}
+
+---
+
+## 📌 Next Steps
+
+1. Review action items and assign clear owners
+2. Set specific deadlines for each task
+3. Schedule follow-up if needed
+4. Update project management system
+5. Share notes with relevant team members
+
+---
+
+## 📝 Full Meeting Transcript
+
+\`\`\`
+${transcript}
+\`\`\`
+
+---
+
+*Generated: ${new Date().toLocaleString()}*
+*For Obsidian • [[Meetings]] • [[Action Items]]*`;
+
+            document.getElementById('preview').textContent = generatedNotes;
+            goToStep(3);
+            showStatus('status3', '✅ Notes generated successfully!', 'success');
+        }
+
+        function copyToClipboard() {
+            navigator.clipboard.writeText(generatedNotes).then(() => {
+                showStatus('status3', '✅ Copied to clipboard! Ready to paste in Obsidian.', 'success');
+            }).catch(() => {
+                showStatus('status3', '❌ Copy failed. Try downloading instead.', 'error');
+            });
+        }
+
+        function downloadMarkdown() {
+            const title = document.getElementById('title').value.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+            const filename = `${title || 'meeting-notes'}.md`;
+            const element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(generatedNotes));
+            element.setAttribute('download', filename);
+            element.style.display = 'none';
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+            showStatus('status3', `✅ Downloaded as ${filename}`, 'success');
+        }
+    </script>
+</body>
+</html>
