@@ -324,3 +324,78 @@
         window.addEventListener('DOMContentLoaded', function() {
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('date').value = today;
+        });
+
+        function showStatus(stepId, message, type = 'info') {
+            const status = document.getElementById(stepId);
+            status.textContent = message;
+            status.className = 'status show ' + type;
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 4000);
+        }
+
+        function goToStep(step) {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            document.getElementById('step' + step).classList.add('active');
+            currentStep = step;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function goToStep1() { goToStep(1); }
+        function goToStep2() {
+            goToStep(2);
+        }
+
+        function loadSample() {
+            const sample = `David: Good morning everyone. Thanks for joining. Let's dive into our Q2 strategy. We have three main focus areas.\n\nSarah: What are those three areas?\n\nDavid: First, strengthen our relationships with Google and AT&T. These are our anchor accounts. Second, develop new offerings for streaming platforms like Spotify and HBO. That's where the growth opportunity is. Third, expand our SCV Digital services locally.\n\nJohn: On the Google account, what are the main pain points?\n\nDavid: They want faster turnaround on campaigns. Our current process is too slow. They also want better reporting. Sarah, I think you should take the lead on a complete workflow audit for Google.\n\nSarah: I can do that. I'll schedule working sessions with their team. When do they need recommendations?\n\nDavid: End of month would be good. March 31st. That gives you about a week and a half.\n\nJohn: What about Spotify?\n\nDavid: I want three distinct package options for Spotify. Starter, Growth, and Enterprise. John, can you take the lead on this with the creative team?\n\nJohn: Absolutely. I'll coordinate with creative and loop in Emma from strategy.\n\nDavid: Perfect. Now, here's what's important: everyone needs to document everything in the CRM. Every call note, every decision. This is how we track progress. Sarah, can you send out a summary and make sure it's in the CRM?\n\nSarah: Will do. I'll document everything by end of day.\n\nDavid: Great. Let's do a weekly sync. Monday at 10 AM starting next week. That's non-negotiable. So to recap: Google audit by March 31st, Spotify proposal with John, weekly syncs Monday 10 AM, and CRM documentation. Any other questions?\n\nJohn: I think we're good.\n\nSarah: I'll get started this week.\n\nDavid: Perfect. Thanks everyone.`;
+            document.getElementById('transcript').value = sample;
+            showStatus('status1', '✅ Sample transcript loaded', 'success');
+        }
+
+        function generateNotes() {
+            const title = document.getElementById('title').value.trim();
+            const date = document.getElementById('date').value;
+            const attendees = document.getElementById('attendees').value.trim();
+            const purpose = document.getElementById('purpose').value.trim();
+            const transcript = document.getElementById('transcript').value.trim();
+
+            if (!title || !attendees) {
+                showStatus('status2', '⚠️ Please fill in Title and Attendees', 'error');
+                return;
+            }
+
+            // Extract key points and action items
+            const keyPoints = extractKeyPoints(transcript);
+            const actionItems = extractActionItems(transcript);
+
+            generatedNotes = `## 📋 Meeting Info\n- **Date**: ${date}\n- **Attendees**: ${attendees}\n- **Purpose**: ${purpose || 'Meeting discussion'}\n\n---\n\n## 🎯 Key Discussion Points\n\n${keyPoints.length > 0 ? keyPoints.map(p => `- ${p}`).join('\n') : `- Review transcript for key discussion points\n- Note any strategic priorities mentioned\n- Identify client needs and concerns\n- Document decisions and commitments`}\n\n---\n\n## ✅ Action Items\n\n${actionItems.length > 0 ? actionItems.map(item => `- [ ] ${item}`).join('\n') : `- [ ] Review meeting for specific tasks\n- [ ] Identify task owners for each action\n- [ ] Set clear deadlines\n- [ ] Document in CRM`}\n\n---\n\n## 📌 Next Steps\n\n1. Review action items and assign clear owners\n2. Set specific deadlines for each task\n3. Schedule follow-up if needed\n4. Update project management system\n5. Share notes with relevant team members\n\n---\n\n## 📝 Full Meeting Transcript\n\n\\`\\`\\`\n${transcript}\n\\`\\`\\`\n\n---\n\n*Generated: ${new Date().toLocaleString()}*\n*For Obsidian • [[Meetings]] • [[Action Items]]*`;
+
+            document.getElementById('preview').textContent = generatedNotes;
+            goToStep(3);
+            showStatus('status3', '✅ Notes generated successfully!', 'success');
+        }
+
+        function copyToClipboard() {
+            navigator.clipboard.writeText(generatedNotes).then(() => {
+                showStatus('status3', '✅ Copied to clipboard! Ready to paste in Obsidian.', 'success');
+            }).catch(() => {
+                showStatus('status3', '❌ Copy failed. Try downloading instead.', 'error');
+            });
+        }
+
+        function downloadMarkdown() {
+            const title = document.getElementById('title').value.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+            const filename = `${title || 'meeting-notes'}.md`;
+            const element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(generatedNotes));
+            element.setAttribute('download', filename);
+            element.style.display = 'none';
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+            showStatus('status3', `✅ Downloaded as ${filename}`, 'success');
+        }
+    </script>
+</body>
+</html>
