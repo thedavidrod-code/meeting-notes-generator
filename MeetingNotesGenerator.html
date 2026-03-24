@@ -246,73 +246,75 @@
         let currentStep = 1;
         let generatedNotes = '';
 
-        // Extract key discussion points - universal pattern matching
+        // Extract key discussion points - improved to handle messy speech
         function extractKeyPoints(transcript) {
             const keyPoints = [];
-            const sentences = transcript.match(/[^.!?]+[.!?]+/g) || [];
             
-            // Look for decision-making language
-            const decisionPhrases = [
-                /(?:we need to|we should|we must|we have to|let's)\s+([^.!?]{15,80})/gi,
-                /(?:key|important|critical|priority)\s+(?:is|are)\s+([^.!?]{15,80})/gi,
-                /(?:the challenge|the issue|the problem)\s+(?:is|are)\s+([^.!?]{15,80})/gi,
-                /(?:agreed|decided|determined)\s+(?:that|on)\s+([^.!?]{15,80})/gi
+            // Split by speaker turns (Name: )
+            const turns = transcript.split(/\n(?=[A-Z][a-z]+:|[A-Z][a-z]+ [A-Z][a-z]+:)/);
+            
+            // Look for sentences with key indicators, even with filler words
+            const keywordPatterns = [
+                /(?:so|hence|therefore|key|important|critical|priority|main|goal|objective|focus|concern|issue|challenge|problem|we need|we should|we're going|we're trying|we're looking|agreed|decided|consensus)/i
             ];
             
-            decisionPhrases.forEach(pattern => {
-                let match;
-                while ((match = pattern.exec(transcript)) !== null) {
-                    let point = match[1]
-                        .replace(/\bum\b|\buh\b|\byou know\b|\bi mean\b|\blike\b/gi, '')
+            turns.forEach(turn => {
+                // Split turn into sentences more flexibly
+                const sentences = turn.split(/(?<=[.!?])\s+|(?<=,)\s+(?=[A-Z])/);
+                
+                sentences.forEach(sentence => {
+                    let cleaned = sentence
+                        .replace(/^[A-Z][a-z]+\s*:\s*/, '')  // Remove speaker label
+                        .replace(/\b(um|uh|you know|i mean|like|kind of|sort of|basically|actually|right|okay)\b/gi, '')
+                        .replace(/,{2,}/g, ',')
                         .replace(/\s+/g, ' ')
                         .trim();
                     
-                    if (point.length > 15 && point.length < 120 && !keyPoints.some(p => p.toLowerCase().substring(0, 30) === point.toLowerCase().substring(0, 30))) {
-                        keyPoints.push(point.charAt(0).toUpperCase() + point.slice(1));
-                    }
-                }
-            });
-            
-            // If we found key points, return them; otherwise extract from sentences with decision markers
-            if (keyPoints.length === 0) {
-                sentences.forEach(sentence => {
-                    if (/(need|should|must|agreed|decided|think|believe|recommend|priority|focus)/i.test(sentence)) {
-                        let clean = sentence
-                            .replace(/\bum\b|\buh\b|\byou know\b|\bi mean\b|\blike\b/gi, '')
-                            .replace(/\s+/g, ' ')
-                            .trim();
-                        if (clean.length > 20 && clean.length < 120) {
-                            keyPoints.push(clean.charAt(0).toUpperCase() + clean.slice(1));
+                    // Only include if it has content and matches a keyword pattern
+                    if (cleaned.length > 20 && cleaned.length < 150 && 
+                        keywordPatterns.some(p => p.test(cleaned)) &&
+                        !keyPoints.some(kp => kp.toLowerCase().substring(0, 40) === cleaned.toLowerCase().substring(0, 40))) {
+                        
+                        if (!cleaned.match(/^[,.\s]+$/) && cleaned.split(' ').length > 3) {
+                            keyPoints.push(cleaned.charAt(0).toUpperCase() + cleaned.slice(1));
                         }
                     }
                 });
-            }
+            });
             
             return keyPoints.slice(0, 6);
         }
 
-        // Extract action items - universal pattern matching
+        // Extract action items - improved to handle messy speech
         function extractActionItems(transcript) {
             const actionItems = [];
             
-            // Look for commitment/assignment language
-            const actionPatterns = [
-                /(?:I'll|I will|we'll|we will|you should|you need to|someone needs to)\s+([^.!?]{15,100})/gi,
-                /(?:can you|could you|would you)\s+([^.!?]{15,100})/gi,
-                /(?:by|due|deadline)\s+([^.!?]{5,30}).*?(?:we need to|I need to|you need to)\s+([^.!?]{15,100})/gi,
-                /(?:action item|task|todo|to do)\s*:?\s+([^.!?]{15,100})/gi
-            ];
+            // Look for action/commitment language, handling filler words
+            const actionKeywords = /(?:i'll|i will|we'll|we will|can you|could you|would you|should|need to|needs to|have to|has to|must|going to|gotta|get back|send|schedule|revise|address|focus on|work on|pull|prepare|develop|create|build|deliver|finalize|complete|finish|by|due|deadline)/i;
             
-            actionPatterns.forEach(pattern => {
-                let match;
-                while ((match = pattern.exec(transcript)) !== null) {
-                    let task = match[match.length - 1] // Get the last capture group
-                        .replace(/\bum\b|\buh\b|\byou know\b|\bi mean\b|\blike\b/gi, '')
-                        .replace(/\s+/g, ' ')
-                        .trim();
+            // Split by speaker turns
+            const turns = transcript.split(/\n(?=[A-Z][a-z]+:|[A-Z][a-z]+ [A-Z][a-z]+:)/);
+            
+            turns.forEach(turn => {
+                if (actionKeywords.test(turn)) {
+                    // Extract meaningful chunks after action verbs
+                    const actionMatches = turn.match(/(?:i'll|i will|we'll|we will|can you|could you|would you|should|need to|go back)[^.!?]{15,100}[.!?]/gi);
                     
-                    if (task.length > 15 && task.length < 120 && !actionItems.some(a => a.toLowerCase().substring(0, 30) === task.toLowerCase().substring(0, 30))) {
-                        actionItems.push(task.charAt(0).toUpperCase() + task.slice(1));
+                    if (actionMatches) {
+                        actionMatches.forEach(match => {
+                            let cleaned = match
+                                .replace(/^[A-Z][a-z]+\s*:\s*/, '')  // Remove speaker
+                                .replace(/\b(um|uh|you know|i mean|like|kind of|sort of|basically|actually|right|okay|so|and)\b/gi, '')
+                                .replace(/[.!?]+$/, '')
+                                .replace(/\s+/g, ' ')
+                                .trim();
+                            
+                            if (cleaned.length > 15 && cleaned.length < 150 && 
+                                !actionItems.some(a => a.toLowerCase().substring(0, 40) === cleaned.toLowerCase().substring(0, 40))) {
+                                
+                                actionItems.push(cleaned.charAt(0).toUpperCase() + cleaned.slice(1));
+                            }
+                        });
                     }
                 }
             });
@@ -336,15 +338,31 @@
         }
 
         function goToStep(step) {
-            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-            document.getElementById('step' + step).classList.add('active');
-            currentStep = step;
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            try {
+                document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+                const stepElement = document.getElementById('step' + step);
+                if (!stepElement) {
+                    throw new Error('Step ' + step + ' element not found');
+                }
+                stepElement.classList.add('active');
+                currentStep = step;
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch(e) {
+                console.error('Error in goToStep:', e);
+                alert('Error: ' + e.message);
+            }
         }
 
-        function goToStep1() { goToStep(1); }
-        function goToStep2() {
-            goToStep(2);
+        function goToStep1() { 
+            goToStep(1); 
+        }
+        function goToStep2() { 
+            try {
+                goToStep(2);
+            } catch(e) {
+                console.error('Error in goToStep2:', e);
+                alert('Error moving to step 2. Check console.');
+            }
         }
 
         function loadSample() {
