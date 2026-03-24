@@ -68,8 +68,7 @@
         }
         input[type="text"],
         input[type="date"],
-        textarea,
-        select {
+        textarea {
             width: 100%;
             padding: 12px;
             border: 1px solid #ddd;
@@ -104,11 +103,6 @@
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
         }
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
         button.secondary {
             background: #f0f0f0;
             color: #333;
@@ -137,11 +131,6 @@
             border-left: 4px solid #ef4444;
             color: #991b1b;
         }
-        .status.info {
-            background: #dbeafe;
-            border-left: 4px solid #3b82f6;
-            color: #1e40af;
-        }
         .preview {
             background: #f9fafb;
             border: 1px solid #e5e7eb;
@@ -150,7 +139,7 @@
             font-family: 'Monaco', 'Courier New', monospace;
             font-size: 13px;
             line-height: 1.6;
-            max-height: 500px;
+            max-height: 600px;
             overflow-y: auto;
             color: #333;
             white-space: pre-wrap;
@@ -175,28 +164,13 @@
     <div class="container">
         <div class="header">
             <h1>📝 Meeting Notes Generator</h1>
-            <p>Convert your meeting transcript into Obsidian-ready markdown</p>
+            <p>Create Obsidian-ready markdown notes</p>
         </div>
 
         <div class="content">
             <!-- STEP 1: Paste Transcript -->
             <div class="step active" id="step1">
-                <div class="step-title">Step 1: Paste Your Meeting Transcript</div>
-                
-                <div class="form-group">
-                    <label>Meeting transcript:</label>
-                    <textarea id="transcript" placeholder="Paste the full meeting transcript here. Example: David: Good morning. Sarah: Hi there. David: Let's discuss Q2 strategy..."></textarea>
-                </div>
-
-                <div id="status1" class="status"></div>
-
-                <button onclick="goToStep2()">Continue to Details →</button>
-                <button class="secondary" onclick="loadSample()">Load Sample Transcript</button>
-            </div>
-
-            <!-- STEP 2: Add Details -->
-            <div class="step" id="step2">
-                <div class="step-title">Step 2: Add Meeting Details</div>
+                <div class="step-title">Step 1: Meeting Details</div>
                 
                 <div class="grid">
                     <div class="form-group">
@@ -216,18 +190,40 @@
 
                 <div class="form-group">
                     <label>Meeting Purpose (optional)</label>
-                    <textarea id="purpose" placeholder="What was this meeting about?" style="min-height: 100px;"></textarea>
+                    <textarea id="purpose" placeholder="What was this meeting about?" style="min-height: 80px;"></textarea>
+                </div>
+
+                <div id="status1" class="status"></div>
+                <button onclick="goToStep2()">Continue →</button>
+            </div>
+
+            <!-- STEP 2: Add Notes -->
+            <div class="step" id="step2">
+                <div class="step-title">Step 2: Your Notes</div>
+                
+                <div class="form-group">
+                    <label>Key Discussion Points (one per line)</label>
+                    <textarea id="keyPoints" placeholder="- Important decision made&#10;- Customer feedback received&#10;- Next steps discussed" style="min-height: 120px;"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Action Items (one per line)</label>
+                    <textarea id="actionItems" placeholder="- [ ] Task 1 - Owner - Due Date&#10;- [ ] Task 2 - Owner - Due Date" style="min-height: 120px;"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Full Transcript (optional)</label>
+                    <textarea id="transcript" placeholder="Paste the full meeting transcript here (optional)" style="min-height: 120px;"></textarea>
                 </div>
 
                 <div id="status2" class="status"></div>
-
-                <button onclick="generateNotes()">✨ Generate Obsidian Notes</button>
+                <button onclick="generateNotes()">✨ Generate Markdown</button>
                 <button class="secondary" onclick="goToStep1()">← Back</button>
             </div>
 
             <!-- STEP 3: Preview & Export -->
             <div class="step" id="step3">
-                <div class="step-title">Step 3: Your Obsidian Notes (Preview)</div>
+                <div class="step-title">Step 3: Your Obsidian Notes</div>
                 
                 <div class="preview" id="preview"></div>
 
@@ -245,82 +241,6 @@
     <script>
         let currentStep = 1;
         let generatedNotes = '';
-
-        // Extract key discussion points - improved to handle messy speech
-        function extractKeyPoints(transcript) {
-            const keyPoints = [];
-            
-            // Split by speaker turns (Name: )
-            const turns = transcript.split(/\n(?=[A-Z][a-z]+:|[A-Z][a-z]+ [A-Z][a-z]+:)/);
-            
-            // Look for sentences with key indicators, even with filler words
-            const keywordPatterns = [
-                /(?:so|hence|therefore|key|important|critical|priority|main|goal|objective|focus|concern|issue|challenge|problem|we need|we should|we're going|we're trying|we're looking|agreed|decided|consensus)/i
-            ];
-            
-            turns.forEach(turn => {
-                // Split turn into sentences more flexibly
-                const sentences = turn.split(/(?<=[.!?])\s+|(?<=,)\s+(?=[A-Z])/);
-                
-                sentences.forEach(sentence => {
-                    let cleaned = sentence
-                        .replace(/^[A-Z][a-z]+\s*:\s*/, '')  // Remove speaker label
-                        .replace(/\b(um|uh|you know|i mean|like|kind of|sort of|basically|actually|right|okay)\b/gi, '')
-                        .replace(/,{2,}/g, ',')
-                        .replace(/\s+/g, ' ')
-                        .trim();
-                    
-                    // Only include if it has content and matches a keyword pattern
-                    if (cleaned.length > 20 && cleaned.length < 150 && 
-                        keywordPatterns.some(p => p.test(cleaned)) &&
-                        !keyPoints.some(kp => kp.toLowerCase().substring(0, 40) === cleaned.toLowerCase().substring(0, 40))) {
-                        
-                        if (!cleaned.match(/^[,.\s]+$/) && cleaned.split(' ').length > 3) {
-                            keyPoints.push(cleaned.charAt(0).toUpperCase() + cleaned.slice(1));
-                        }
-                    }
-                });
-            });
-            
-            return keyPoints.slice(0, 6);
-        }
-
-        // Extract action items - improved to handle messy speech
-        function extractActionItems(transcript) {
-            const actionItems = [];
-            
-            // Look for action/commitment language, handling filler words
-            const actionKeywords = /(?:i'll|i will|we'll|we will|can you|could you|would you|should|need to|needs to|have to|has to|must|going to|gotta|get back|send|schedule|revise|address|focus on|work on|pull|prepare|develop|create|build|deliver|finalize|complete|finish|by|due|deadline)/i;
-            
-            // Split by speaker turns
-            const turns = transcript.split(/\n(?=[A-Z][a-z]+:|[A-Z][a-z]+ [A-Z][a-z]+:)/);
-            
-            turns.forEach(turn => {
-                if (actionKeywords.test(turn)) {
-                    // Extract meaningful chunks after action verbs
-                    const actionMatches = turn.match(/(?:i'll|i will|we'll|we will|can you|could you|would you|should|need to|go back)[^.!?]{15,100}[.!?]/gi);
-                    
-                    if (actionMatches) {
-                        actionMatches.forEach(match => {
-                            let cleaned = match
-                                .replace(/^[A-Z][a-z]+\s*:\s*/, '')  // Remove speaker
-                                .replace(/\b(um|uh|you know|i mean|like|kind of|sort of|basically|actually|right|okay|so|and)\b/gi, '')
-                                .replace(/[.!?]+$/, '')
-                                .replace(/\s+/g, ' ')
-                                .trim();
-                            
-                            if (cleaned.length > 15 && cleaned.length < 150 && 
-                                !actionItems.some(a => a.toLowerCase().substring(0, 40) === cleaned.toLowerCase().substring(0, 40))) {
-                                
-                                actionItems.push(cleaned.charAt(0).toUpperCase() + cleaned.slice(1));
-                            }
-                        });
-                    }
-                }
-            });
-            
-            return actionItems.slice(0, 8);
-        }
 
         // Set today's date when the page loads
         window.addEventListener('DOMContentLoaded', function() {
@@ -342,13 +262,13 @@
                 document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
                 const stepElement = document.getElementById('step' + step);
                 if (!stepElement) {
-                    throw new Error('Step ' + step + ' element not found');
+                    throw new Error('Step ' + step + ' not found');
                 }
                 stepElement.classList.add('active');
                 currentStep = step;
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             } catch(e) {
-                console.error('Error in goToStep:', e);
+                console.error('Error:', e);
                 alert('Error: ' + e.message);
             }
         }
@@ -356,19 +276,16 @@
         function goToStep1() { 
             goToStep(1); 
         }
-        function goToStep2() { 
-            try {
-                goToStep(2);
-            } catch(e) {
-                console.error('Error in goToStep2:', e);
-                alert('Error moving to step 2. Check console.');
+        
+        function goToStep2() {
+            const title = document.getElementById('title').value.trim();
+            const attendees = document.getElementById('attendees').value.trim();
+            
+            if (!title || !attendees) {
+                showStatus('status1', '⚠️ Please fill in Title and Attendees', 'error');
+                return;
             }
-        }
-
-        function loadSample() {
-            const sample = `David: Good morning everyone. Thanks for joining. Let's dive into our Q2 strategy. We have three main focus areas.\n\nSarah: What are those three areas?\n\nDavid: First, strengthen our relationships with Google and AT&T. These are our anchor accounts. Second, develop new offerings for streaming platforms like Spotify and HBO. That's where the growth opportunity is. Third, expand our SCV Digital services locally.\n\nJohn: On the Google account, what are the main pain points?\n\nDavid: They want faster turnaround on campaigns. Our current process is too slow. They also want better reporting. Sarah, I think you should take the lead on a complete workflow audit for Google.\n\nSarah: I can do that. I'll schedule working sessions with their team. When do they need recommendations?\n\nDavid: End of month would be good. March 31st. That gives you about a week and a half.\n\nJohn: What about Spotify?\n\nDavid: I want three distinct package options for Spotify. Starter, Growth, and Enterprise. John, can you take the lead on this with the creative team?\n\nJohn: Absolutely. I'll coordinate with creative and loop in Emma from strategy.\n\nDavid: Perfect. Now, here's what's important: everyone needs to document everything in the CRM. Every call note, every decision. This is how we track progress. Sarah, can you send out a summary and make sure it's in the CRM?\n\nSarah: Will do. I'll document everything by end of day.\n\nDavid: Great. Let's do a weekly sync. Monday at 10 AM starting next week. That's non-negotiable. So to recap: Google audit by March 31st, Spotify proposal with John, weekly syncs Monday 10 AM, and CRM documentation. Any other questions?\n\nJohn: I think we're good.\n\nSarah: I'll get started this week.\n\nDavid: Perfect. Thanks everyone.`;
-            document.getElementById('transcript').value = sample;
-            showStatus('status1', '✅ Sample transcript loaded', 'success');
+            goToStep(2);
         }
 
         function generateNotes() {
@@ -376,6 +293,8 @@
             const date = document.getElementById('date').value;
             const attendees = document.getElementById('attendees').value.trim();
             const purpose = document.getElementById('purpose').value.trim();
+            const keyPoints = document.getElementById('keyPoints').value.trim();
+            const actionItems = document.getElementById('actionItems').value.trim();
             const transcript = document.getElementById('transcript').value.trim();
 
             if (!title || !attendees) {
@@ -383,20 +302,64 @@
                 return;
             }
 
-            // Extract key points and action items
-            const keyPoints = extractKeyPoints(transcript);
-            const actionItems = extractActionItems(transcript);
+            // Format key points
+            let keyPointsFormatted = keyPoints 
+                ? keyPoints.split('\n').filter(p => p.trim()).map(p => p.trim().startsWith('-') ? p.trim() : '- ' + p.trim()).join('\n')
+                : '- Add key discussion points here';
 
-            generatedNotes = `## 📋 Meeting Info\n- **Date**: ${date}\n- **Attendees**: ${attendees}\n- **Purpose**: ${purpose || 'Meeting discussion'}\n\n---\n\n## 🎯 Key Discussion Points\n\n${keyPoints.length > 0 ? keyPoints.map(p => `- ${p}`).join('\n') : `- Review transcript for key discussion points\n- Note any strategic priorities mentioned\n- Identify client needs and concerns\n- Document decisions and commitments`}\n\n---\n\n## ✅ Action Items\n\n${actionItems.length > 0 ? actionItems.map(item => `- [ ] ${item}`).join('\n') : `- [ ] Review meeting for specific tasks\n- [ ] Identify task owners for each action\n- [ ] Set clear deadlines\n- [ ] Document in CRM`}\n\n---\n\n## 📌 Next Steps\n\n1. Review action items and assign clear owners\n2. Set specific deadlines for each task\n3. Schedule follow-up if needed\n4. Update project management system\n5. Share notes with relevant team members\n\n---\n\n## 📝 Full Meeting Transcript\n\n\\`\\`\\`\n${transcript}\n\\`\\`\\`\n\n---\n\n*Generated: ${new Date().toLocaleString()}*\n*For Obsidian • [[Meetings]] • [[Action Items]]*`;
+            // Format action items
+            let actionItemsFormatted = actionItems 
+                ? actionItems.split('\n').filter(a => a.trim()).map(a => a.trim().startsWith('-') ? a.trim() : '- ' + a.trim()).join('\n')
+                : '- [ ] Add action items here';
+
+            // Generate markdown
+            generatedNotes = `## 📋 Meeting Info
+- **Date**: ${date}
+- **Attendees**: ${attendees}
+- **Purpose**: ${purpose || 'Meeting discussion'}
+
+---
+
+## 🎯 Key Discussion Points
+
+${keyPointsFormatted}
+
+---
+
+## ✅ Action Items
+
+${actionItemsFormatted}
+
+---
+
+## 📌 Next Steps
+
+1. Review action items and assign owners
+2. Set deadlines for each task
+3. Schedule follow-up if needed
+4. Share notes with team
+
+${transcript ? `---
+
+## 📝 Full Transcript
+
+\`\`\`
+${transcript}
+\`\`\`` : ''}
+
+---
+
+*Generated: ${new Date().toLocaleString()}*
+*For Obsidian • [[Meetings]] • [[Action Items]]*`;
 
             document.getElementById('preview').textContent = generatedNotes;
             goToStep(3);
-            showStatus('status3', '✅ Notes generated successfully!', 'success');
+            showStatus('status3', '✅ Markdown generated!', 'success');
         }
 
         function copyToClipboard() {
             navigator.clipboard.writeText(generatedNotes).then(() => {
-                showStatus('status3', '✅ Copied to clipboard! Ready to paste in Obsidian.', 'success');
+                showStatus('status3', '✅ Copied to clipboard!', 'success');
             }).catch(() => {
                 showStatus('status3', '❌ Copy failed. Try downloading instead.', 'error');
             });
