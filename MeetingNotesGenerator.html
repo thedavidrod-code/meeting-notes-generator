@@ -246,76 +246,78 @@
         let currentStep = 1;
         let generatedNotes = '';
 
-        // Extract key discussion points - smarter parsing
+        // Extract key discussion points - universal pattern matching
         function extractKeyPoints(transcript) {
             const keyPoints = [];
+            const sentences = transcript.match(/[^.!?]+[.!?]+/g) || [];
             
-            // Look for explicit decision statements and key info
-            if (transcript.includes("Monday at one o'clock") || transcript.includes("Monday at 1 o'clock")) {
-                keyPoints.push("Monday 1:00 PM call scheduled with Army consultant from Agency Pipeline");
+            // Look for decision-making language
+            const decisionPhrases = [
+                /(?:we need to|we should|we must|we have to|let's)\s+([^.!?]{15,80})/gi,
+                /(?:key|important|critical|priority)\s+(?:is|are)\s+([^.!?]{15,80})/gi,
+                /(?:the challenge|the issue|the problem)\s+(?:is|are)\s+([^.!?]{15,80})/gi,
+                /(?:agreed|decided|determined)\s+(?:that|on)\s+([^.!?]{15,80})/gi
+            ];
+            
+            decisionPhrases.forEach(pattern => {
+                let match;
+                while ((match = pattern.exec(transcript)) !== null) {
+                    let point = match[1]
+                        .replace(/\bum\b|\buh\b|\byou know\b|\bi mean\b|\blike\b/gi, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    
+                    if (point.length > 15 && point.length < 120 && !keyPoints.some(p => p.toLowerCase().substring(0, 30) === point.toLowerCase().substring(0, 30))) {
+                        keyPoints.push(point.charAt(0).toUpperCase() + point.slice(1));
+                    }
+                }
+            });
+            
+            // If we found key points, return them; otherwise extract from sentences with decision markers
+            if (keyPoints.length === 0) {
+                sentences.forEach(sentence => {
+                    if (/(need|should|must|agreed|decided|think|believe|recommend|priority|focus)/i.test(sentence)) {
+                        let clean = sentence
+                            .replace(/\bum\b|\buh\b|\byou know\b|\bi mean\b|\blike\b/gi, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                        if (clean.length > 20 && clean.length < 120) {
+                            keyPoints.push(clean.charAt(0).toUpperCase() + clean.slice(1));
+                        }
+                    }
+                });
             }
             
-            if (transcript.includes("15 pages") || transcript.includes("15 pager")) {
-                keyPoints.push("Submit up to 15-page capabilities document plus 1-page summary to Army by March 31st");
-            }
-            
-            if (transcript.includes("government page") || transcript.includes("government work")) {
-                keyPoints.push("Need government capabilities page on website - critical for visibility to government contractors");
-            }
-            
-            if (transcript.includes("RFP is not until 2027") || transcript.includes("RFP not until 2027")) {
-                keyPoints.push("RFP process won't launch until 2027, but Army is building agency database now");
-            }
-            
-            if (transcript.includes("Sam.gov")) {
-                keyPoints.push("Need to register in SAM.gov government database for federal contract opportunities");
-            }
-            
-            if (transcript.includes("lottery") || transcript.includes("anti-tobacco") || transcript.includes("84 Foundation")) {
-                keyPoints.push("Strong existing capabilities to highlight: lottery senses, anti-tobacco campaigns, 84 Foundation behavior change work");
-            }
-            
-            return keyPoints.filter(p => p.length > 0).slice(0, 6);
+            return keyPoints.slice(0, 6);
         }
 
-        // Extract action items - only real, specific tasks
+        // Extract action items - universal pattern matching
         function extractActionItems(transcript) {
             const actionItems = [];
             
-            // Look for explicit commitments and deliverables
-            if (transcript.includes("pull together the info that goes on the one page")) {
-                actionItems.push("Pull together information for 1-page government capabilities summary");
-            }
+            // Look for commitment/assignment language
+            const actionPatterns = [
+                /(?:I'll|I will|we'll|we will|you should|you need to|someone needs to)\s+([^.!?]{15,100})/gi,
+                /(?:can you|could you|would you)\s+([^.!?]{15,100})/gi,
+                /(?:by|due|deadline)\s+([^.!?]{5,30}).*?(?:we need to|I need to|you need to)\s+([^.!?]{15,100})/gi,
+                /(?:action item|task|todo|to do)\s*:?\s+([^.!?]{15,100})/gi
+            ];
             
-            if (transcript.includes("start pulling together the bigger") || transcript.includes("pull together bigger capes")) {
-                actionItems.push("Develop 15-page capabilities document for Army submission");
-            }
+            actionPatterns.forEach(pattern => {
+                let match;
+                while ((match = pattern.exec(transcript)) !== null) {
+                    let task = match[match.length - 1] // Get the last capture group
+                        .replace(/\bum\b|\buh\b|\byou know\b|\bi mean\b|\blike\b/gi, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    
+                    if (task.length > 15 && task.length < 120 && !actionItems.some(a => a.toLowerCase().substring(0, 30) === task.toLowerCase().substring(0, 30))) {
+                        actionItems.push(task.charAt(0).toUpperCase() + task.slice(1));
+                    }
+                }
+            });
             
-            if (transcript.includes("government page") && transcript.includes("website")) {
-                actionItems.push("Create government capabilities page on website with case studies and services");
-            }
-            
-            if (transcript.includes("SAM.gov") && !transcript.includes("we're in this SAM.gov")) {
-                actionItems.push("Register company in SAM.gov government contracting database");
-            }
-            
-            if (transcript.includes("David and I will take that call")) {
-                actionItems.push("David to take Monday 1:00 PM call with Army consultant");
-            }
-            
-            if (transcript.includes("first thing you do is content")) {
-                actionItems.push("Determine website content strategy (case studies, services, government capabilities)");
-            }
-            
-            if (transcript.includes("give her the capes")) {
-                actionItems.push("Review consultant's pricing and services before committing");
-            }
-            
-            if (transcript.includes("March 31st")) {
-                actionItems.push("Complete and submit capabilities documents to Army by March 31st deadline");
-            }
-            
-            return actionItems.filter(a => a.length > 0 && a.length < 150).slice(0, 8);
+            return actionItems.slice(0, 8);
         }
 
         // Set today's date
